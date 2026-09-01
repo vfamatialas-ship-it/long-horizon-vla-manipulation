@@ -1,4 +1,21 @@
 #!/usr/bin/env python3
+# ─────────────────────────────────────────────────────────────────────────────
+# ⚠ 外部依赖:本文件需要 `switcher.py` 与训练好的进度头权重,它们不在本仓库。
+#
+#   完整的模型、权重、决策参数与研究记录在:
+#       https://github.com/vfamatialas-ship-it/subtask-progress-head
+#
+#   取用方式:
+#       git clone https://github.com/vfamatialas-ship-it/subtask-progress-head
+#       cp subtask-progress-head/src/switcher.py       <PKG>/
+#       cp subtask-progress-head/deploy/progress_head.pt <PKG>/
+#       cp subtask-progress-head/deploy/deploy_cfg.json  <PKG>/
+#       # SigLIP2 视觉塔另从 HuggingFace 拉(第三方权重, 两仓库都不再分发):
+#       #   google/siglip2-so400m-patch14-224  →  <PKG>/siglip2_vision/
+#
+#   本仓库只提供把它接进 rollout 客户端的胶水层:进程隔离、msgpack IPC、
+#   流水线调用、逐步诊断日志、失败自动退回手动。
+# ─────────────────────────────────────────────────────────────────────────────
 """子任务自动切换 —— **客户端侧的瘦封装**,给四个 rollout 客户端 import。
 
 跑在系统 python3 里(只用 numpy + 标准库),真正的模型在 switcher_service.py 那个
