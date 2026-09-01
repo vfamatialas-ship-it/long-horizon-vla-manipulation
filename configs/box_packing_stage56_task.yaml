@@ -1,0 +1,168 @@
+# Nero dual-arm Stage5/6 flap-closing refined collection config.
+# This dataset starts after the carton is already rotated into the Stage5 pose,
+# with the left and right flaps still open. It records only the 7 micro subtasks
+# that close the left flap (macro stage 5) and then the right flap (macro stage 6).
+
+dataset:
+  repo_id: local/nero_stage56_flap_closing_v1
+  root: <PROJECT_ROOT>/lerobot_data/lerobot_hezi/data_depth/nero_stage56_flap_closing_v1
+  timestamp_root: true
+  fps: 15
+  episode_seconds: 180
+  resume: false
+  image_writer_threads: 4
+  robot_type: dual_nero_stage56_flap_closing
+  incomplete_dir_name: incomplete
+
+task:
+  name: nero_stage56_flap_closing
+  instruction: Brace the front and rear flaps with the right arm, close the left flap with the left arm, then retract and close the right flap with the right arm.
+  action_source: kinesthetic_current_feedback_as_same_frame_action_target
+  action_note: >
+    During master/zero-force kinesthetic collection there is no separate command
+    stream sent to the robot controller. The action column records the current
+    measured robot state as the same-frame demonstrated joint target; it is not
+    the next-frame joint state.
+
+counts:
+  mouse_boxes: 0
+  earphone_boxes: 0
+
+# stage id 编码: 5x = 原 Stage5 拆出的微动作, 6x = 原 Stage6 拆出的微动作。
+# 采集顺序 = stage id 升序, 每段 repeat=1, 全部靠 Space 推进。
+stages:
+  - id: 51
+    name: RIGHT_LIFT_OVER_FLAPS_TO_BOX_TOP
+    prompt_index: 1
+    repeat: 1
+    display: 右臂举起跨过合页贴近箱子上表面
+  - id: 52
+    name: RIGHT_OPEN_GRIPPER_BRACE_FRONT_REAR_FLAPS
+    prompt_index: 2
+    repeat: 1
+    display: 右夹爪张开抵住前后两个合页
+  - id: 53
+    name: LEFT_LIFT_LEFT_FLAP_TO_NEAR_VERTICAL
+    prompt_index: 3
+    repeat: 1
+    display: 左臂从左侧托起左合页至近垂直
+  - id: 54
+    name: LEFT_CLOSE_LEFT_FLAP
+    prompt_index: 4
+    repeat: 1
+    display: 左臂将左合页合上
+  - id: 55
+    name: RIGHT_RETRACT_FROM_BOX_TOP
+    prompt_index: 5
+    repeat: 1
+    display: 右臂收回
+  - id: 61
+    name: RIGHT_LIFT_RIGHT_FLAP_TO_NEAR_VERTICAL
+    prompt_index: 6
+    repeat: 1
+    display: 右臂从右侧托起右合页至近垂直
+  - id: 62
+    name: RIGHT_CLOSE_RIGHT_FLAP
+    prompt_index: 7
+    repeat: 1
+    display: 右臂将右合页合上
+
+prompts:
+  - prompt_index: 1
+    zh: 右臂举起并跨过合页，移动到贴近箱子上表面的位置。
+    en: Raise the right arm, move it over the flaps, and bring it close to the top surface of the carton.
+  - prompt_index: 2
+    zh: 张开右夹爪并下降，用两指分别抵住前后两个合页。
+    en: Open the right gripper and lower it so that the two fingers brace the front and rear flaps.
+  - prompt_index: 3
+    zh: 左臂从左侧托起左合页，抬到接近垂直的状态；右臂保持抵住前后合页。
+    en: Use the left arm to lift the left flap from the left side until it is nearly vertical, while the right arm keeps bracing the front and rear flaps.
+  - prompt_index: 4
+    zh: 左臂将左合页向内合上；右臂保持抵住前后合页。
+    en: Use the left arm to fold the left flap inward and close it, while the right arm keeps bracing the front and rear flaps.
+  - prompt_index: 5
+    zh: 右臂从箱子上方收回，离开合页区域。
+    en: Retract the right arm from above the carton and clear the flap area.
+  - prompt_index: 6
+    zh: 右臂从右侧托起右合页，抬到接近垂直的状态。
+    en: Use the right arm to lift the right flap from the right side until it is nearly vertical.
+  - prompt_index: 7
+    zh: 右臂将右合页向内合上。
+    en: Use the right arm to fold the right flap inward and close it.
+
+events:
+  0: NONE
+  1: EPISODE_STARTED
+  2: SUBTASK_STARTED
+  3: MOUSE_BOX_PLACED
+  4: EARPHONE_BOX_PLACED
+  5: STAGE_COMPLETED
+  6: EPISODE_SUCCESS
+  7: EPISODE_FAILED
+  8: EPISODE_DISCARDED
+
+failure_types:
+  - none
+  - flap_contact_failed
+  - flap_lift_failed
+  - flap_slipped
+  - flap_reopened
+  - flap_closing_failed
+  - carton_slipped
+  - gripper_blocked
+  - collision
+  - timeout
+  - manual_abort
+  - other
+
+keys:
+  space: advance
+  s: save_success
+  f: save_failure
+  g: discard_episode
+  q: quit
+
+cameras:
+  rgb:
+    width: 640
+    height: 480
+    fps: 15
+    fourcc: MJPG
+    storage: video
+    left_wrist: /dev/video2
+    right_wrist: /dev/video4
+    third_view: /dev/video6
+    manual_controls: {}
+  depth:
+    enabled: true
+    camera_names: [third_view]
+    backend: orbbec_v1
+    width: 640
+    height: 480
+    fps: 15
+    storage: video
+    min_mm: 250
+    max_mm: 1800
+    colorize: gray
+    open_timeout: 10
+    raw_format: png
+    raw_png_compression: 1
+    third_view_serial: <THIRD_CAM_SERIAL>
+
+can:
+  bitrate: 1000000
+  interface: socketcan
+  timeout: 1.0
+  left_serial: "<LEFT_CAN_SERIAL>"
+  right_serial: "<RIGHT_CAN_SERIAL>"
+  left_firmware: v120
+  right_firmware: v120
+  default_left_can: can0
+  default_right_can: can1
+  resolve_by_serial: true
+
+safety:
+  enable: false
+  drag_teach: false
+  speed_percent: 5
+  mode_settle_seconds: 0.5

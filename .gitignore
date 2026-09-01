@@ -1,0 +1,77 @@
+# ── 模型权重 ──────────────────────────────────────────────────────────
+# 单档约 9 GB, 四档 36 GB。只把 best/final 放 Hugging Face, 仓库里不留。
+*.pt
+*.pth
+*.safetensors
+*.msgpack
+*.npz
+params/
+train_state/
+checkpoints/
+checkpoints_ee/
+*_checkpoint/
+*.distcp
+
+# ── 数据集 ────────────────────────────────────────────────────────────
+# 完整数据集在 Hugging Face; 仓库里只保留 dataset/sample_episode/ 一条样例。
+data/
+datasets/
+lerobot_data/
+*.parquet
+*.arrow
+!dataset/sample_episode/**
+
+# ── 视频与图像原片 ────────────────────────────────────────────────────
+# assets/ 下手工挑选的 demo GIF / 短 mp4 是白名单放行的, 其余一律不进。
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.png
+*.jpg
+*.jpeg
+!assets/**/*.gif
+!assets/**/*.png
+!assets/**/*.mp4
+!docs/**/*.png
+!docs/**/*.svg
+
+# ── 日志与中间产物 ────────────────────────────────────────────────────
+*.log
+logs/
+runs/
+outputs/
+wandb/
+tmp/
+work/
+_work/
+*.pid
+*.logpath
+nohup.out
+
+# ── Python ────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.conda/
+.ipynb_checkpoints/
+
+# ── 备份与临时文件 ────────────────────────────────────────────────────
+# 原项目里有大量 *.bak_xxx 的迭代备份, 对读者是噪声。
+*.bak
+*.bak_*
+*.orig
+*~
+.DS_Store
+
+# ── 本机 / 实验室特有 ─────────────────────────────────────────────────
+# 这些含内网 IP、设备序列号、账号, 绝不能进仓库。
+config.env
+*.local.yaml
+secrets*
+*token*
+*.key
+*.pem
+id_rsa*

@@ -1,0 +1,68 @@
+# RLinf 右臂抓盒【成功】对照采集配置(两子任务: 抓取 → 放置)。
+# 用途: 给 value critic 当正样本锚点; 与失败采集脚本成对对照。
+
+dataset:
+  repo_id: local/nero_rightbox_success
+  root: <PROJECT_ROOT>/lerobot_data/Rlinf/data/nero_rightbox_success
+  timestamp_root: true
+  fps: 15
+  episode_seconds: 180
+  resume: false
+  image_writer_threads: 4
+  robot_type: dual_nero_left_box_pick
+  incomplete_dir_name: incomplete
+
+task:
+  name: nero_rightbox_success
+  active_arm: RIGHT
+  action_source: kinesthetic_current_feedback_as_same_frame_action_target
+
+subtasks:
+  - subtask_id: 1
+    name: grasp
+    zh: 右臂抓取右侧区域的盒子
+    en: Use the right arm to grasp a box from the right-side area.
+  - subtask_id: 2
+    name: place
+    zh: 右臂将抓到的盒子放进打包盒的空处
+    en: Use the right arm to place the grasped box into an empty spot of the middle packing carton.
+
+failure_types:   # 成功采集偶尔也会失败, 按这些标签保存(供对照/复用)
+  - none
+  - grasp_misaligned
+  - grasp_too_low
+  - place_collision
+  - place_wrong_position
+  - other
+  - manual_abort
+
+can:
+  bitrate: 1000000
+  interface: socketcan
+  timeout: 1.0
+  left_firmware: v120
+  right_firmware: v120
+  left_serial: "<LEFT_CAN_SERIAL>"    # 右臂 CAN 适配器序列号(固定, 按它解析 canX)
+  right_serial: "<RIGHT_CAN_SERIAL>"   # 右臂
+
+safety:
+  enable: false
+  drag_teach: false
+  speed_percent: 5
+  mode_settle_seconds: 0.5
+
+cameras:
+  rgb:
+    width: 640
+    height: 480
+    fps: 15
+    fourcc: MJPG
+    storage: video
+    serials:                                  # 按 USB 序列号解析 /dev/videoN(插拔不乱)
+      left_wrist: <LEFT_WRIST_CAM_SERIAL>
+      right_wrist: <RIGHT_WRIST_CAM_SERIAL>
+      third_view: <THIRD_CAM_SERIAL>
+    exposure:                                 # v4l2 手动曝光(照抄现有采集的取值)
+      left_wrist:  {auto_exposure: 1, exposure_time_absolute: 200, gain: 8, gamma: 110}
+      right_wrist: {auto_exposure: 1, exposure_time_absolute: 240, gain: 8, gamma: 130}
+      third_view:  {auto_exposure: 1, exposure_time_absolute: 160, gain: 8, gamma: 120}
