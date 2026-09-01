@@ -1,381 +1,353 @@
-# Long-Horizon Dual-Arm Manipulation with π0.5
+# 长程双臂操作 · 基于 π0.5
 
-A real dual-arm robot completing an **18-subtask, ~4-minute packing task** end to end —
-pick two boxes, fold the carton's side flaps, close the lid — driven by four fine-tuned
-π0.5 policies with automatic subtask switching.
+真实双臂机器人端到端完成一个 **18 子任务、约 4 分钟**的装箱任务 —— 抓两个盒子放进纸箱、
+折合两侧扇面、合上箱盖 —— 由四个微调后的 π0.5 策略接力驱动,子任务自动切换。
 
-No human keypress during execution.
+**执行全程无需人工按键。**
 
 ---
 
 ## Demo
 
-> **[TODO: rollout GIF — full 4-stage run, 3× speed]**
+> **[待补:完整四段串跑 GIF,3 倍速]**
 > `assets/rollouts/full_chain_3x.gif`
 
 | | |
 |---|---|
-| **[TODO] Success rollout** — complete 18-subtask run | **[TODO] Failure case** — wrong grasp order |
+| **[待补] 成功案例** — 完整 18 子任务 | **[待补] 失败案例** — 抓取顺序错误 |
 | `assets/rollouts/success_full.gif` | `assets/rollouts/failure_grasp_order.gif` |
 
 ---
 
-## Key Results
+## 核心结果
 
 | | |
 |---|---|
-| Task horizon | **18 subtasks**, 4 expert policies, ~4 min per full run |
-| Real-robot chain | 4 stages run back-to-back, **zero manual intervention** |
-| Subtask switching | **96 %** of held-out episodes complete all subtasks (70/73) |
-| Switch timing error | median **−1 frame**; 76 % within ±10, 91 % within ±20 frames @15 Hz |
-| Training data | 369 episodes / **236,957 frames** / 15 Hz / 3 cameras, all self-collected |
-| Switcher latency | **36 ms** end-to-end on a laptop RTX 5060 (needs < 66.7 ms for 15 Hz) |
+| 任务长度 | **18 个子任务**,4 个专家策略,单轮约 4 分钟 |
+| 真机串跑 | 四段连续执行,**全程零人工干预** |
+| 子任务切换 | 留出集 **96%** 的 episode 走完全部子任务(70/73) |
+| 切换时刻误差 | 中位 **−1 帧**;76% 落在 ±10 帧内,91% 落在 ±20 帧内(@15Hz) |
+| 训练数据 | 369 集 / **236,957 帧** / 15Hz / 三路相机,全部自采 |
+| 切换器延迟 | 笔记本 RTX 5060 上端到端 **36ms**(15Hz 的预算是 66.7ms) |
 
 ---
 
-## Overview
+## 项目概览
 
-### The task
+### 任务
 
-A carton sits in the middle of the table. Boxes are scattered on both sides.
-The robot must:
-
-```
-E0  right arm  →  grasp a box from the right area, place it in the carton     (2 subtasks)
-E1  left arm   →  grasp a box from the left area, place it in the carton      (2 subtasks)
-E2  both arms  →  brace and fold the two side flaps flat                      (7 subtasks)
-E3  both arms  →  lift and close the left flap, then the right flap           (7 subtasks)
-```
-
-### Why it is hard
-
-A single policy trained on the whole 4-minute demonstration does not work — the phases
-have different contact modes, different active arms, and errors compound. The task is
-split into four experts, which turns the problem into: *when do we hand over?*
-
-### System
+纸箱放在桌面中央,盒子散落两侧。机器人需要:
 
 ```
-┌───────────────── laptop (robot control) ─────────────────┐   ┌─── GPU server ───┐
-│  chain orchestrator  →  4 rollout clients                │   │  4 × π0.5 policy │
-│         │                     │                          │   │     servers      │
-│         │                     ├── websocket ─────────────┼──►│  (OpenPI serve)  │
-│         │                     │                          │   └──────────────────┘
-│         │                     ├── SocketCAN ──► dual arm │
-│         │                     └── 3 × USB camera         │
-│         └── subtask switcher (SigLIP2 + progress head, local GPU)
-└──────────────────────────────────────────────────────────┘
+E0  右臂  →  从右侧区域抓一个盒子, 放进纸箱          (2 个子任务)
+E1  左臂  →  从左侧区域抓一个盒子, 放进纸箱          (2 个子任务)
+E2  双臂  →  抵住并向内折合两侧扇面, 压平            (7 个子任务)
+E3  双臂  →  依次抬起并合上左、右合页                (7 个子任务)
+```
+
+### 难在哪
+
+用单个策略学完整的 4 分钟演示是行不通的 —— 各阶段的接触模式不同、执行臂不同,
+误差还会沿着长程累积。所以拆成四个专家,问题随之变成:**什么时候交接?**
+
+### 系统构成
+
+```
+┌──────────────── 笔记本(机器人控制端)────────────────┐   ┌─── GPU 服务器 ───┐
+│  串跑编排器  →  4 个 rollout 客户端                   │   │  4 × π0.5 策略   │
+│       │              │                                │   │      服务        │
+│       │              ├── websocket ───────────────────┼──►│  (OpenPI serve)  │
+│       │              │                                │   └──────────────────┘
+│       │              ├── SocketCAN ──► 双臂机械臂      │
+│       │              └── 3 × USB 相机                  │
+│       └── 子任务切换器(SigLIP2 + 进度头, 本地 GPU)
+└───────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## My Contributions
+## 我的贡献
 
-This project is **built upon** OpenPI / π0.5 and LeRobot (see
-[Acknowledgements](#acknowledgements)). What I did:
+本项目**基于** OpenPI / π0.5 与 LeRobot 构建(见[致谢](#致谢))。我做的部分:
 
-**Task & data**
-- Designed the 4-expert / 18-subtask decomposition of the long-horizon task
-- Built the kinesthetic-teaching collection stack — task-config-driven state machine,
-  per-frame subtask labelling with **zero manual second-pass annotation**
-  (`src/collect/`, `configs/*.yaml`)
-- Collected all 369 episodes / 236,957 frames myself on the real robot
-- Failure-mode taxonomy and dedicated failure-case datasets for contrast experiments
+**任务设计与数据**
+- 设计了长程任务的 4 专家 / 18 子任务分解
+- 搭建了拖动示教的采集栈 —— 配置驱动的任务状态机,逐帧写入子任务标签,
+  **零人工二次标注**(`src/collect/`、`configs/*.yaml`)
+- 在真机上采集了全部 369 集 / 236,957 帧
+- 失败模式分类与专门的失败对照数据集
 
-**End-effector pose representation**
-- Converted joint-space datasets to a 20-D absolute EE / 14-D relative action
-  representation; wrote FK, damped-least-squares IK with null-space regularisation,
-  and the rot6D/rotvec representation layer (`src/ee/`)
-- **Chose the representation by measurement, not intuition**: rot6D for relative rotation
-  hit `max|z| = 18.09` against a red line of 20; rotvec gave 12.00. Step-wise differencing
-  gave 66.70 and was discarded in favour of chunk anchoring (`src/ee/probe_ee_repr.py`)
-- Offline consistency check `joint → FK → relative → restore → IK → joint` as a hard gate
-  before touching the real robot (`src/ee/replay_ee_ik.py`)
+**末端位姿表示**
+- 把关节空间数据集转换为 20 维绝对末端位姿 / 14 维相对动作表示;实现了正运动学、
+  带零空间正则的阻尼最小二乘逆运动学,以及 rot6D/rotvec 表示层(`src/ee/`)
+- **表示法是量出来的,不是拍脑袋定的**:rot6D 做相对旋转时归一化幅值达到
+  `max|z| = 18.09`,顶着 20 的红线;换成 rotvec 降到 12.00。逐步差分是 66.70,
+  直接废弃,改用 chunk 锚定(`src/ee/probe_ee_repr.py`)
+- 离线一致性校验 `关节 → FK → 相对 → 还原 → IK → 关节`,作为上真机前的硬门禁
+  (`src/ee/replay_ee_ik.py`)
 
-**Training pipeline**
-- Fine-tuned four π0.5 LoRA policies (20k steps each) on the self-collected data
-- Diagnosed and fixed a normalisation failure: an idle arm's action std collapses to
-  ~1e-4 and z-scoring explodes — added a per-dimension std floor, asserted
-  `max|z| < 20` on real batches in CI-style verification (`evaluation/verify_ee_dataset.py`)
-- Gated training entry point that refuses to touch a GPU unless norm stats and pipeline
-  verification both pass (`scripts/go_ee_train.sh`)
+**训练管线**
+- 在自采数据上微调了四个 π0.5 LoRA 策略(各 20k 步)
+- 定位并修复了一个归一化崩溃:静止臂的动作标准差会掉到 ~1e-4,z-score 直接爆炸。
+  加了逐维 std 兜底,并在真实批次上断言 `max|z| < 20`(`evaluation/verify_ee_dataset.py`)
+- 带门禁的训练入口:归一化统计和管线校验**两项都过才允许碰 GPU**
+  (`scripts/go_ee_train.sh`)
 
-**Deployment on the real robot**
-- 4-stage chain orchestrator with per-stage recording, shared run IDs, deferred video
-  encoding, and inter-stage repositioning (`src/deploy/run_chain_4stage.py`)
-- Joint-level safety: rate limiting + anti-windup clamping that bounds stall torque —
-  added after diagnosing a J6 over-current trip caused by a 30° command-vs-actual gap
-- Emergency stop that **holds position under power** rather than disabling — this
-  hardware's brake does not hold, so a naive `disable()` drops the arm onto the workpiece
-- Integrated a subtask progress head (SigLIP2 + MLP) for automatic switching, including a
-  minimum-duration guard I added after finding the released config had **no lower bound**
-  and could burn through a 140-frame subtask in 14 frames
+**真机部署**
+- 四段串跑编排器:分段录制、共享运行 ID、延迟统一编码视频、段间归位
+  (`src/deploy/run_chain_4stage.py`)
+- 关节层安全:速率限幅 + 抗积分饱和,给堵转力矩设上界 —— 这是在诊断出 J6 因
+  指令与实际偏差累积到 30° 而过流跳闸之后加的
+- 急停改为**带电钉住位姿**而非失能 —— 该硬件断电后抱闸不保持,
+  一个天真的 `disable()` 会让机械臂直接砸到工件上
+- 集成子任务进度头(SigLIP2 + MLP)做自动切换,并补上了一个**最短时长下限** ——
+  原配置只有上限,没有下限,一个本该 140 帧的子任务可能 14 帧就被切走
 
-**Evaluation & tooling**
-- Held-out serial-replay evaluation of switch timing (error distribution, completion rate)
-- Per-step diagnostic tracing so a bad switch can be explained instead of guessed at
-- Rollout video compositor for reviewing runs (`visualization/make_run_overview.py`)
+**评测与工具**
+- 留出集串行回放评测切换时刻(误差分布、整集完成率)
+- 逐步诊断日志,让"为什么切错"可以查证而不是猜测
+- rollout 视频合成工具,便于回看整轮表现(`visualization/make_run_overview.py`)
 
 ---
 
-## Method
+## 方法
 
-### Four experts, deterministic hand-off
+### 四个专家,确定性交接
 
-Expert-to-expert switching uses a **deterministic counter**, not a classifier.
+专家之间的切换用的是**确定性计数器**,不是分类器。
 
-I trained a 3-way image classifier for this first: it reached 100 % per-frame accuracy but
-its temporal profile was completely flat — at 90 % through an E0 episode it still predicted
-E2 with 0 % confidence. It had learned *which dataset a frame came from*, not *when to
-switch*. The datasets were recorded separately, so the decision boundary is not in the data.
+我先试过三分类图像分类器:逐帧准确率 100%,但时序剖面完全平坦 —— E0 的 episode
+跑到 90% 进度时,它对 E2 的预测仍然是 0%。它学到的是**"这一帧来自哪个数据集"**,
+而不是**"该切了"**。四个数据集分别录制,决策边界根本不在数据里。
 
-The chain therefore advances experts by counting, and asks the progress head only
-*"is this expert finished?"*.
+所以链路按计数推进专家,只问进度头一件事:**这个专家做完了吗?**
 
-### Subtask switching inside an expert
+### 专家内部的子任务切换
 
 ```
-3 cameras → SigLIP2-so400m → MLP head → (progress, done, time-to-boundary)
-                                              ↓ min = signal
-   signal > τ for K=8 consecutive frames → wait D steps → advance subtask
+三路相机 → SigLIP2-so400m → MLP 头 → (progress, done, time-to-boundary)
+                                          ↓ 取 min = signal
+   signal > τ 连续 K=8 帧  →  再等 D 步延迟补偿  →  推进到下一子任务
 ```
 
-Four mechanisms keep it stable:
+四道机制保证稳定:
 
 | | |
 |---|---|
-| **Current frame only** | No frame index, no temporal model. If the network stalls, the input stops changing, so progress stops advancing — for free |
-| **Stall gating** | `Δstate < 1e-5` freezes the counters, **but only while the signal is below τ** — a stall *after* the signal crosses means "done and holding", which should switch |
-| **Hysteresis** | No re-switch within 10 steps |
-| **Min / max duration** | Hard bounds on how early and how late a switch may fire |
+| **只吃当前帧** | 不喂帧号、不用时序模型。网络卡顿时输入不变,进度自然不推进 |
+| **停滞门控** | `Δstate < 1e-5` 冻结计数,**但只在信号未过线时冻结** —— 已过线的静止意味着"做完了停在那儿",该切就切 |
+| **迟滞** | 切换后 10 步内不允许再切 |
+| **上下限** | 对切换的最早与最晚时刻都设硬边界 |
 
-The minimum-duration bound is mine. The released calibration had only an upper bound, and
-its τ values were 1st-percentile estimates on the training distribution — some as small as
-`1e-6`. On a real scene where the signal sits above τ from frame 1, a subtask would fire
-after `K + D` ≈ 14 steps against a true length of 139. I set
-`min_steps = 0.6 × p10(segment length)` per subtask, verified that every value falls below
-the shortest observed segment, so it blocks false triggers without ever delaying a real one.
+**下限是我加的。** 原始标定只有上限,而 τ 是在训练分布上按 1% 分位估的,有些小到
+`1e-6`。真实场景中只要信号从第一帧就在 τ 之上,子任务会在 `K + D` ≈ 14 步就被切走,
+而它的真实长度是 139 帧。我按 `min_steps = 0.6 × 段长p10` 逐子任务设定,
+并验证了 18 个值**全部小于各自观测到的最短段**,所以它只挡误触发,永远不会推迟合理切换。
 
-### Calling rate matters
+### 调用频率是硬约束
 
-The thresholds are all in **step** units, calibrated at 15 Hz. Calling the head at 5 Hz
-drops switch accuracy from 76 % to 4 %. The switcher therefore runs on the **camera loop**,
-not the policy inference loop, and is pipelined so the GPU round-trip stays off the
-control path.
+所有阈值都是**步数量纲**,按 15Hz 标定。以 5Hz 调用会让切换准确率从 76% 崩到 4%。
+因此切换器挂在**相机循环**上而非策略推理循环上,并做了流水线,把 GPU 往返移出控制临界路径。
 
 ---
 
-## Dataset
+## 数据集
 
-369 episodes, 236,957 frames, 15 Hz, three RGB cameras — all collected by kinesthetic
-teaching on the real robot.
+369 集、236,957 帧、15Hz、三路 RGB —— 全部由拖动示教在真机上采集。
 
-See **[`dataset/README.md`](dataset/README.md)** for the full schema, the 20-D/14-D EE
-layout, subtask definitions, and per-column meanings.
+完整 schema、20 维 / 14 维末端位姿布局、子任务定义、逐列含义见
+**[`dataset/README.md`](dataset/README.md)**。
 
-Full data on Hugging Face — **link TBD**.
+完整数据将发布在 Hugging Face —— **链接待补**。
 
 ---
 
-## Experiments
+## 实验
 
-### Subtask switching, held-out set
+### 子任务切换(留出集)
 
-Serial replay over 73 held-out episodes — errors accumulate across subtasks, which is the
-closest offline proxy to real-robot behaviour.
+在 73 条留出 episode 上串行回放 —— 误差会跨子任务累积,这是最接近真机行为的离线评测。
 
-| Expert | Episodes completed | Switches | Median error | ≤10 frames | ≤20 frames |
+| 专家 | 整集跑完 | 切换次数 | 误差中位 | ≤10 帧 | ≤20 帧 |
 |---|---|---|---|---|---|
-| E0 right-arm pick | 16/18 | 34 | −4 | 65 % | 91 % |
-| E1 left-arm pick | 16/16 | 32 | +0 | 75 % | 84 % |
-| E2 flap folding | 24/25 | 174 | −1 | 74 % | 92 % |
-| E3 flap closing | 14/14 | 98 | +0 | 85 % | 90 % |
-| **Total** | **70/73 = 96 %** | 341 | **−1** | **76 %** | **91 %** |
+| E0 右臂抓放 | 16/18 | 34 | −4 | 65% | 91% |
+| E1 左臂抓放 | 16/16 | 32 | +0 | 75% | 84% |
+| E2 折合扇面 | 24/25 | 174 | −1 | 74% | 92% |
+| E3 合上箱盖 | 14/14 | 98 | +0 | 85% | 90% |
+| **合计** | **70/73 = 96%** | 341 | **−1** | **76%** | **91%** |
 
-### Representation ablation
+### 表示法消融
 
-Measured on real data, normalised amplitude (red line = 20):
+在真实数据上量归一化幅值(红线 = 20):
 
-| Relative-rotation representation | `max|z|` | Verdict |
+| 相对旋转表示 | `max\|z\|` | 结论 |
 |---|---|---|
-| rot6D | 18.09 | at the limit |
-| **rotvec** | **12.00** | chosen |
+| rot6D | 18.09 | 顶到红线 |
+| **rotvec** | **12.00** | 选它 |
 
-| Action parameterisation | `max|z|` | Verdict |
+| 动作参数化 | `max\|z\|` | 结论 |
 |---|---|---|
-| step-wise difference | 66.70 | unusable — 71 % of chunks have one arm still |
-| **chunk-anchored to first frame** | within range | chosen |
+| 逐步差分 | 66.70 | 不可用 —— 71% 的 chunk 有一条臂全程静止 |
+| **chunk 锚定首帧** | 在健康范围内 | 选它 |
 
-### Real-robot latency budget @15 Hz (66.7 ms/step)
+### 真机延迟预算(15Hz = 每步 66.7ms)
 
-| Component | Measured |
+| 部分 | 实测 |
 |---|---|
-| 3 × camera read | 0.6 ms |
-| Switcher (SigLIP2 + head, RTX 5060) | 36 ms |
-| Policy inference, amortised over a 50-step chunk | 12.4 ms |
+| 三路相机读取 | 0.6 ms |
+| 切换器(SigLIP2 + 头,RTX 5060) | 36 ms |
+| 策略推理(摊到 50 步的 chunk 上) | 12.4 ms |
 
-Reducing the observation payload from full-resolution to the server's own 224×224
-pre-resize cut inference round-trip from **620 ms to 222 ms** (2.77 MB → 0.45 MB) —
-the client and server now run bit-identical resize, so model input is unchanged.
-
----
-
-## Failure Cases
-
-### Case 1 — Premature subtask switch
-
-**Observation.** The left-arm expert advanced through both of its subtasks in under two
-seconds; the arm never actually grasped the box.
-
-**Diagnosis.** Instrumented every switch decision. The signal sat at 0.816 while τ was
-0.001434 — **570× above threshold from the very first frame**, so `hits` incremented every
-step and the switch fired at `K + D` = 14 steps against a true segment length of 139.
-The released calibration had a `max_steps` upper bound but **no lower bound**.
-
-**Fix.** Added `min_steps` per subtask, derived from training segment-length statistics.
-Verified against the shortest observed segment for all 18 subtasks so it cannot delay a
-legitimate switch. Post-fix, a real run produced 2/2/7/7 switches with per-subtask step
-counts matching the training distribution (E0: 206/167 steps vs. training median 212/186).
-
-**Open question.** On random-noise input the signal is far above τ, which means τ is
-effectively an open gate. If real scenes behave the same way, switching degrades into a
-fixed timer and τ should be **re-calibrated on real-robot data** rather than patched with
-more guards. The per-step trace log was added to answer exactly this.
-
-### Case 2 — J6 over-current trip
-
-**Observation.** The left arm repeatedly froze at the same point in E2, joint indicator red.
-
-**Diagnosis.** J6 was driving into its mechanical limit. The position servo's torque is
-proportional to (command − actual); the command kept advancing while the arm was blocked,
-so the gap grew to ~30° and current reached 9 A, tripping the joint.
-
-**Fix.** Anti-windup clamping — the command may lead the measured position by at most
-`stall_gap` radians, which bounds stall torque. I also verified that **null-space
-regularisation cannot rescue this**: for a 7-DoF arm on a 6-DoF task the null space is
-1-dimensional and its direction is not ours to choose.
-
-### Case 3 — Missing camera in single-arm clients
-
-**Observation.** `KeyError: 'left_wrist'` on E0/E1 once auto-switching was enabled.
-
-**Diagnosis.** The progress head is trained with `n_view=3`, but single-arm clients
-deliberately open only two cameras (the policy's repack uses two). Feeding zeros for the
-third would be out-of-distribution input.
-
-**Fix.** Open the third camera only when auto-switching is on, used by the switcher alone —
-the policy's observation is unchanged.
+把观测负载从原图改为服务端同一套 224×224 预缩放,推理往返从 **620ms 降到 222ms**
+(2.77MB → 0.45MB)—— 客户端与服务端跑的是逐比特相同的缩放,喂给模型的图没有变化。
 
 ---
 
-## Code Structure
+## 失败案例分析
+
+### 案例一 — 子任务切换过早
+
+**现象.** 左臂专家在两秒内走完了自己的两个子任务,而机械臂根本没抓到盒子。
+
+**诊断.** 给每次切换判据加了日志。信号值是 0.816,而 τ 是 0.001434 ——
+**从第一帧起就是阈值的 570 倍**,于是 `hits` 每步都在累加,切换在 `K + D` = 14 步就触发,
+而该段的真实长度是 139 帧。原始标定有 `max_steps` 上限,却**没有下限**。
+
+**修复.** 按训练集的段长统计,给每个子任务加 `min_steps`。对全部 18 个子任务验证它都小于
+各自观测到的最短段,因此不可能推迟合理的切换。修复后一次真机运行给出 2/2/7/7 次切换,
+各子任务的步数与训练分布吻合(E0:206/167 步,训练中位 212/186)。
+
+**未解决的问题.** 在随机噪声输入上信号也远高于 τ,说明这道门实际上是常开的。
+如果真实画面同样如此,切换就退化成了固定计时器,那么应该**用真机数据重新标定 τ**,
+而不是继续加护栏。逐步诊断日志就是为回答这个问题而加的。
+
+### 案例二 — J6 过流跳闸
+
+**现象.** 左臂在 E2 的同一位置反复卡死,关节指示灯变红。
+
+**诊断.** J6 一直在往机械限位方向顶。位置伺服的力矩正比于(指令 − 实际),
+机械臂被挡住时指令仍在推进,偏差累积到约 30°,电流达到 9A,触发跳闸保护。
+
+**修复.** 抗积分饱和限幅 —— 指令最多超前实测位置 `stall_gap` 弧度,从而给堵转力矩设上界。
+同时验证了**零空间正则救不了这个问题**:7 自由度机械臂执行 6 自由度任务时,
+零空间是 1 维的,方向由不得我们挑。
+
+### 案例三 — 单臂客户端缺相机
+
+**现象.** 开启自动切换后,E0/E1 报 `KeyError: 'left_wrist'`。
+
+**诊断.** 进度头按 `n_view=3` 训练,而单臂客户端刻意只开两路相机(策略的 repack 只用两路)。
+给第三路喂零图属于分布外输入。
+
+**修复.** 仅在开启自动切换时才打开第三路相机,且只供切换器使用 —— 策略的观测完全不变。
+
+---
+
+## 代码结构
 
 ```
 src/
-├── deploy/            real-robot execution
-│   ├── run_chain_4stage.py         ★ entry point: 4-stage orchestrator
-│   ├── run_pi05_rollout_*_ee.py      per-expert rollout clients (record + execute)
-│   ├── run_pi05_deploy_hezi_ee.py    dual-arm layer: arm control, IK, cameras, clamping
-│   ├── rollout_boxpick_common.py     single-arm layer: keypad, device resolution
-│   ├── switcher_{client,service}.py   subtask progress head (separate venv, IPC)
-│   ├── goto_home.py / goto_start.py   closed-loop repositioning
-│   └── traj_{teach,replay,replay_record}.py   kinesthetic trajectory record / replay
-├── collect/           data collection state machines
-└── ee/                joint ⇄ end-effector pose
-    ├── fk_nero.py     forward kinematics (numpy only)
-    ├── ik_nero.py     damped least squares + null-space
-    ├── ee_repr.py     rot6D / rotvec, absolute ⇄ relative
+├── deploy/            真机执行
+│   ├── run_chain_4stage.py         ★ 入口:四段串跑编排器
+│   ├── run_pi05_rollout_*_ee.py      各专家的 rollout 客户端(录制 + 执行)
+│   ├── run_pi05_deploy_hezi_ee.py    双臂层:臂控制、IK、相机、限幅
+│   ├── rollout_boxpick_common.py     单臂层:键盘、设备解析
+│   ├── switcher_{client,service}.py   子任务进度头(独立 venv + 进程间通信)
+│   ├── goto_home.py / goto_start.py   闭环归位
+│   └── traj_{teach,replay,replay_record}.py   手教轨迹录制 / 回放
+├── collect/           数据采集状态机
+└── ee/                关节 ⇄ 末端位姿
+    ├── fk_nero.py     正运动学(纯 numpy)
+    ├── ik_nero.py     阻尼最小二乘 + 零空间
+    ├── ee_repr.py     rot6D / rotvec,绝对 ⇄ 相对
     └── build_ee_dataset.py
 
-configs/               task definitions (subtask prompts, cameras, failure taxonomy)
-scripts/               training pipeline + policy-server launchers
-evaluation/            dataset & pipeline verification (must ALL PASS before training)
-visualization/         rollout video compositor
-dataset/               format spec + sample episode
-docs/                  design notes
-assets/                demo GIFs and images
+configs/               任务定义(子任务提示词、相机、失败类型)
+scripts/               训练管线 + 策略服务启动脚本
+evaluation/            数据集与管线校验(训练前必须 ALL PASS)
+visualization/         rollout 视频合成
+dataset/               格式说明 + 样例 episode
+docs/                  设计笔记
+assets/                演示 GIF 与图片
 ```
 
 ---
 
-## Usage
+## 使用方式
 
-> Requires the robot hardware, a CUDA GPU for the policy servers, and vendor SDK.
-> Paths in configs are placeholders (`<DATA_ROOT>` etc.) — set them for your machine.
+> 需要机器人硬件、跑策略服务的 CUDA GPU,以及厂商 SDK。
+> 配置里的路径是占位符(`<DATA_ROOT>` 等),按自己的机器填。
 
 ```bash
-# 1. hardware check: CAN / web UI / driver
+# 1. 硬件体检:CAN / 网页 / 驱动
 bash src/deploy/check_arms.sh
 
-# 2. start the four policy servers (on the GPU machine)
+# 2. 起四个策略服务(在 GPU 机器上)
 GPU=0 PORT=8031 STEP=19999 bash scripts/serve/serve_rightbox_ee.sh
-# ... one per expert
+# ... 每个专家一个
 
-# 3. dry run — verifies orchestration without touching the robot
+# 3. 干跑 —— 只验编排, 不碰机器人
 python3 src/deploy/run_chain_4stage.py --dry-run
 
-# 4. real robot, read-only (inference + recording, no motion commands)
+# 4. 真机只读(推理 + 录制, 不发运动指令)
 python3 src/deploy/run_chain_4stage.py --host <POLICY_SERVER_IP>
 
-# 5. full execution with automatic subtask switching
+# 5. 真执行 + 子任务自动切换
 python3 src/deploy/run_chain_4stage.py --host <POLICY_SERVER_IP> \
         --execute --auto-advance --auto-switch
 ```
 
-Training a policy:
+训练一个策略:
 
 ```bash
-python3 src/ee/build_ee_dataset.py --src <joint-dataset> --dst <ee-dataset>
-python3 src/ee/replay_ee_ik.py <ee-dataset>          # offline consistency gate
-python3 evaluation/verify_ee_dataset.py <ee-dataset> --pipeline   # must ALL PASS
+python3 src/ee/build_ee_dataset.py --src <关节数据集> --dst <末端位姿数据集>
+python3 src/ee/replay_ee_ik.py <末端位姿数据集>       # 离线一致性门禁
+python3 evaluation/verify_ee_dataset.py <数据集> --pipeline   # 必须 ALL PASS
 bash scripts/compute_norm_stats_ee.sh
 python3 src/ee/floor_norm_stats_ee.py <norm_stats.json>
-DRY=1 bash scripts/go_ee_train.sh                    # gate check, does not touch GPU
-bash scripts/go_ee_train.sh <exp-name>
+DRY=1 bash scripts/go_ee_train.sh                     # 只做门禁检查, 不碰 GPU
+bash scripts/go_ee_train.sh <实验名>
 ```
 
 ---
 
-## Model Checkpoints
+## 模型权重
 
-Weights are not in this repository. Training configuration:
+权重不放在本仓库。训练配置:
 
 | | |
 |---|---|
-| Base model | π0.5 (`pi05_base`), LoRA — `gemma_2b_lora` + `gemma_300m_lora` |
-| Training steps | 20,000, checkpoints every 5,000 |
-| Batch size | 32 (dual-arm) / 16 (single-arm) |
-| LR schedule | cosine, warmup 1,000, peak 1e-4 → 1e-6 |
-| Optimiser | AdamW, gradient clip 1.0 |
-| Hardware | 1 × 32 GB / 48 GB GPU per run, ~10–21 h |
+| 基座模型 | π0.5(`pi05_base`),LoRA —— `gemma_2b_lora` + `gemma_300m_lora` |
+| 训练步数 | 20,000,每 5,000 步存一档 |
+| Batch size | 32(双臂)/ 16(单臂) |
+| 学习率 | cosine,warmup 1,000,峰值 1e-4 → 1e-6 |
+| 优化器 | AdamW,梯度裁剪 1.0 |
+| 硬件 | 单卡 32GB / 48GB,单次约 10–21 小时 |
 
-Best checkpoints → Hugging Face, **link TBD**. Intermediate checkpoints are not published.
+Best checkpoint 将发布到 Hugging Face —— **链接待补**。中间档不发布。
 
 ---
 
-## Acknowledgements
+## 致谢
 
-### Built upon
+### 基于以下开源项目
 
-| Project | Used for |
+| 项目 | 用途 |
 |---|---|
-| [OpenPI](https://github.com/Physical-Intelligence/openpi) / π0.5 | Base VLA model, training and serving infrastructure |
-| [LeRobot](https://github.com/huggingface/lerobot) v2.1 | Dataset format, recording and video encoding |
-| [SigLIP2](https://huggingface.co/google/siglip2-so400m-patch14-224) | Vision encoder for the subtask progress head |
+| [OpenPI](https://github.com/Physical-Intelligence/openpi) / π0.5 | 基座 VLA 模型、训练与推理服务框架 |
+| [LeRobot](https://github.com/huggingface/lerobot) v2.1 | 数据集格式、录制与视频编码 |
+| [SigLIP2](https://huggingface.co/google/siglip2-so400m-patch14-224) | 子任务进度头的视觉编码器 |
 
-The four fine-tuned policies are LoRA adaptations of π0.5. Training and serving use
-OpenPI's `scripts/train.py` and `scripts/serve_policy.py`; dataset I/O uses LeRobot.
-**These frameworks are not my work.**
+四个微调策略是 π0.5 的 LoRA 适配。训练与服务使用 OpenPI 的 `scripts/train.py` 和
+`scripts/serve_policy.py`,数据读写使用 LeRobot。**这些框架不是我的工作。**
 
-### Mine
+### 我的部分
 
-Task decomposition, all real-robot data collection and its labelling pipeline, the
-end-effector pose representation and its selection experiments, the joint-level safety
-layer, the 4-stage chain orchestrator, subtask-switching integration and the
-minimum-duration fix, evaluation tooling, and the failure analyses above.
+任务分解、全部真机数据采集及其标注管线、末端位姿表示及其选型实验、关节层安全机制、
+四段串跑编排器、子任务切换的集成与下限修复、评测工具,以及上述失败案例分析。
 
 ---
 
-## Status
+## 状态
 
-Actively developed. Known open items are listed in [`docs/TODO.md`](docs/TODO.md).
+持续开发中。已知待办见 [`docs/TODO.md`](docs/TODO.md)。

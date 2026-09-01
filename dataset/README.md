@@ -1,191 +1,188 @@
-# Dataset
+# 数据集
 
-Four real-robot datasets, one per expert policy. Collected by **kinesthetic teaching**
-(zero-force / leader mode) on a dual-arm Nero robot — no teleoperation device involved.
+四个真机数据集,每个专家一个。全部由**拖动示教**(零力矩 / 主导模式)在双臂 Nero 机器人上采集,
+未使用任何遥操作设备。
 
-Full datasets live on Hugging Face (link TBD). This directory keeps only the format
-spec and one sample episode so the schema can be inspected without downloading ~10 GB.
+完整数据集发布在 Hugging Face(**链接待补**)。本目录只保留格式说明和一条样例 episode,
+让人不下载 ~10 GB 也能看清 schema。
 
 ---
 
-## Overview
+## 总览
 
-| Expert | Dataset | Episodes | Frames | Segments | Subtasks |
+| 专家 | 数据集 | 集数 | 帧数 | 段数 | 子任务 |
 |---|---|---|---|---|---|
-| E0 right-arm pick&place | `nero_right_box_pick_ee_v1` | 100 | 41,034 | 200 | 2 |
-| E1 left-arm pick&place | `nero_left_box_pick_ee_v1` | 100 | 38,087 | 200 | 2 |
-| E2 flap folding (stage 3/4) | `nero_hezi_closing_ee_v1` | 100 | 87,649 | 700 | 7 |
-| E3 flap closing (stage 5/6) | `nero_stage56_flap_closing_ee_v2` | 69 | 70,187 | 483 | 7 |
-| **Total** | | **369** | **236,957** | **1,583** | **18** |
+| E0 右臂抓放 | `nero_right_box_pick_ee_v1` | 100 | 41,034 | 200 | 2 |
+| E1 左臂抓放 | `nero_left_box_pick_ee_v1` | 100 | 38,087 | 200 | 2 |
+| E2 折合扇面(阶段 3/4) | `nero_hezi_closing_ee_v1` | 100 | 87,649 | 700 | 7 |
+| E3 合上箱盖(阶段 5/6) | `nero_stage56_flap_closing_ee_v2` | 69 | 70,187 | 483 | 7 |
+| **合计** | | **369** | **236,957** | **1,583** | **18** |
 
-All at **15 Hz**, three RGB cameras, LeRobot v2.1 format.
+全部 **15Hz**、三路 RGB、LeRobot v2.1 格式。
 
-`Segments` = number of labelled subtask spans. Segment boundaries are derived from the
-per-frame `prompt_index` run-lengths — **no manual second-pass annotation**.
+`段数` = 有标签的子任务区间数。区间边界由逐帧 `prompt_index` 的游程直接导出 ——
+**没有人工二次标注**。
 
 ---
 
-## Recording setup
+## 采集配置
 
 ```
-Cameras   third_view   640×480 @15Hz   scene overview (fixed mount)
-          left_wrist   640×480 @15Hz   mounted on left gripper
-          right_wrist  640×480 @15Hz   mounted on right gripper
+相机   third_view   640×480 @15Hz   第三视角全景(固定安装)
+       left_wrist   640×480 @15Hz   左爪腕部
+       right_wrist  640×480 @15Hz   右爪腕部
 
-Arms      7-DoF × 2 + parallel grippers, SocketCAN @1 Mbps
-Mode      kinesthetic teaching (zero-force), operator physically guides the arms
+机械臂  7 自由度 × 2 + 平行夹爪,SocketCAN @1 Mbps
+模式    拖动示教(零力矩),由人手直接引导机械臂
 ```
 
-### Why `action ≡ state`
+### 为什么 `action ≡ state`
 
 ```
 action_source = kinesthetic_current_feedback_as_same_frame_action_target
 ```
 
-During kinesthetic collection there is **no separate command stream** sent to the
-controller. The `action` column records the *same-frame measured state* as the
-demonstrated target — it is **not** the next-frame state.
+拖动示教采集时**不存在独立的指令流** —— 没有指令下发给控制器。`action` 这一列记录的是
+**同帧的实测状态**作为示教目标,**不是**下一帧的状态。
 
-This has a direct consequence for training: when one arm is idle for a whole segment,
-its action deltas are near-constant (measured std ~1e-4), and z-score normalisation
-divides by that std. Without a floor on those dimensions the normalised values explode.
-See `src/ee/floor_norm_stats_ee.py`.
+这件事对训练有直接影响:当某条臂整段静止时,它的动作增量几乎恒定(实测 std ~1e-4),
+而 z-score 归一化要除以这个 std,没有兜底的话归一化值会直接爆炸。
+见 `src/ee/floor_norm_stats_ee.py`。
 
 ---
 
-## Two representations
+## 两种表示
 
-The same episodes exist in two forms. They are **not** interchangeable — the state and
-action semantics differ.
+同一批 episode 存了两种形式,**不可混用** —— 两者的 state 与 action 语义不同。
 
-| | Joint-space | End-effector pose (used by the deployed policies) |
+| | 关节空间 | 末端位姿(实际部署使用) |
 |---|---|---|
-| `observation.state` | 16 (7 joints + gripper) × 2 arms | 20 (see layout below) |
-| `action` | 16, delta joints | 14, relative pose |
-| Extra columns | — | `observation.state_ee20`, `action_ee20` |
+| `observation.state` | 16(7 关节 + 夹爪)× 2 臂 | 20(布局见下) |
+| `action` | 16,关节增量 | 14,相对位姿 |
+| 额外列 | — | `observation.state_ee20`、`action_ee20` |
 
-> **Quick check**: if a dataset has no `*_ee20` columns, it is the joint-space version.
+> **快速判别**:数据集里没有 `*_ee20` 列的,就是关节版。
 
-### 20-D absolute EE state
-
-```
-[0:3]    left  position xyz          (m, world frame)
-[3:6]    left  rotation matrix col 0
-[6:9]    left  rotation matrix col 1
-[9]      left  gripper width         (m)
-[10:13]  right position xyz
-[13:16]  right rotation matrix col 0
-[16:19]  right rotation matrix col 1
-[19]     right gripper width
-```
-
-`rot6D` = first **two columns** of the rotation matrix (Zhou et al. 2019 continuous
-representation), recovered by Gram-Schmidt. Columns, not rows — consistent everywhere.
-
-TCP = fingertip, 0.138 m along the flange +z. Both arms share **one world frame**,
-which is required for a dual-arm task — otherwise left/right positions are not comparable.
-
-### 14-D relative action (computed at train time, not stored)
+### 20 维绝对末端位姿状态
 
 ```
-[0:3]   left  Δposition = p_i − p_0     (world frame, chunk anchored to first frame)
-[3:6]   left  rotvec(R_i @ R_0ᵀ)
-[6]     left  gripper width (absolute)
-[7:14]  right, same layout
+[0:3]    左臂 位置 xyz            (米, 世界系)
+[3:6]    左臂 旋转矩阵第 0 列
+[6:9]    左臂 旋转矩阵第 1 列
+[9]      左臂 夹爪开度             (米)
+[10:13]  右臂 位置 xyz
+[13:16]  右臂 旋转矩阵第 0 列
+[16:19]  右臂 旋转矩阵第 1 列
+[19]     右臂 夹爪开度
 ```
 
-Two choices here were **measured, not guessed** (see `src/ee/probe_ee_repr.py`):
+`rot6D` = 旋转矩阵的前**两列**(Zhou et al. 2019 的连续表示),用 Gram-Schmidt 还原。
+是列不是行 —— 全项目一致。
 
-- **rotvec instead of rot6D for relative rotation** — rot6D gave `max|z| = 18.09`,
-  against a red line of 20; rotvec brought it to 12.00.
-- **Chunk-anchored instead of step-wise differencing** — in this task 71 % of chunks have
-  one arm completely still; step-wise differencing gave `max|z| = 66.70`, unusable.
+TCP = 指尖,沿法兰 +z 方向 0.138 米。两条臂共用**同一个世界系** ——
+双臂任务必须如此,否则左右位置根本没有可比性。
+
+### 14 维相对动作(训练时计算,不落盘)
+
+```
+[0:3]   左臂 Δ位置 = p_i − p_0     (世界系, chunk 锚定到首帧)
+[3:6]   左臂 rotvec(R_i @ R_0ᵀ)
+[6]     左臂 夹爪开度(绝对值)
+[7:14]  右臂, 布局相同
+```
+
+这里有两个选择是**量出来的,不是猜的**(见 `src/ee/probe_ee_repr.py`):
+
+- **相对旋转用 rotvec 而非 rot6D** —— rot6D 给出 `max|z| = 18.09`,红线是 20;
+  换 rotvec 降到 12.00。
+- **chunk 锚定而非逐步差分** —— 本任务中 71% 的 chunk 有一条臂全程静止,
+  逐步差分给出 `max|z| = 66.70`,不可用。
 
 ---
 
-## Per-frame columns
+## 逐帧列说明
 
-| Column | Type | Meaning |
+| 列名 | 类型 | 含义 |
 |---|---|---|
-| `observation.state` | float32[16] | measured joint angles + gripper widths |
-| `action` | float32[16] | demonstrated target (≡ state, see above) |
-| `observation.state_ee20` | float32[20] | absolute EE pose (EE datasets only) |
-| `action_ee20` | float32[20] | EE target (EE datasets only) |
-| `observation.images.third_view` | video | scene camera |
-| `observation.images.left_wrist` | video | left wrist camera |
-| `observation.images.right_wrist` | video | right wrist camera |
-| `prompt_index` | int64 | which subtask this frame belongs to |
-| `prompt_text` / `prompt_text_zh` | string | language instruction (EN / ZH) |
-| `subtask_instance_id` | int64 | 1-based subtask index within the episode |
-| `subtask_start` / `subtask_end` | int64 | segment boundary flags |
-| `episode_success` | int64 | 1 success / 0 failure |
-| `failure_type` | string | failure taxonomy, `none` on success |
-| `active_arm` | string | which arm is executing |
-| `event_code` / `event_name` | int64 / string | collection-time events |
+| `observation.state` | float32[16] | 实测关节角 + 夹爪开度 |
+| `action` | float32[16] | 示教目标(≡ state,见上文) |
+| `observation.state_ee20` | float32[20] | 绝对末端位姿(仅 EE 数据集) |
+| `action_ee20` | float32[20] | 末端位姿目标(仅 EE 数据集) |
+| `observation.images.third_view` | video | 第三视角相机 |
+| `observation.images.left_wrist` | video | 左腕相机 |
+| `observation.images.right_wrist` | video | 右腕相机 |
+| `prompt_index` | int64 | 该帧属于哪个子任务 |
+| `prompt_text` / `prompt_text_zh` | string | 语言指令(英 / 中) |
+| `subtask_instance_id` | int64 | episode 内子任务序号(从 1 开始) |
+| `subtask_start` / `subtask_end` | int64 | 区间边界标志 |
+| `episode_success` | int64 | 1 成功 / 0 失败 |
+| `failure_type` | string | 失败类型,成功时为 `none` |
+| `active_arm` | string | 当前执行的是哪条臂 |
+| `event_code` / `event_name` | int64 / string | 采集时的事件标记 |
 
-EE rollout datasets additionally carry `ik_pos_err`, `ik_ok`, `idle_left`, `idle_right`.
-
----
-
-## Subtask definitions
-
-### E0 right-arm pick & place (2)
-
-```
-1  Use the right arm to grasp a box from the right-side area.
-2  Use the right arm to place the grasped box into an empty spot of the middle packing carton.
-```
-
-E1 is the mirror image (left arm, left-side area).
-
-### E2 flap folding, stage 3/4 (7)
-
-```
-31  Move the right arm toward the lower part of the box's right side flap and brace the middle.
-32  Move the left arm toward the lower part of the box's left side flap and brace the middle.
-33  Use both arms at the same time to fold the left and right side flaps inward, then press flat.
-41  Move both arms away from the carton flaps and withdraw to a safe position.
-42  Move the right arm toward the front part of the box's right lower flap and gently push.
-43  Move the left arm under the open flap, brace the left edge of the lower flap and push.
-44  Move the right arm under the open flap, brace the left edge of the lower flap and push.
-```
-
-> ⚠ In `tasks.jsonl` the `task_index` is **not** the execution order for this dataset —
-> execution order maps to `task_index [0,6,5,2,1,4,3]`. Deployment must apply that
-> mapping; reading `task_index` as "which segment" silently loads the wrong prompt.
-
-### E3 flap closing, stage 5/6 (7)
-
-```
-51  Raise the right arm, move it over the flaps, close to the carton top surface.
-52  Open the right gripper and lower it so the two fingers brace the front and rear flaps.
-53  Use the left arm to lift the left flap to near vertical, right arm keeps bracing.
-54  Use the left arm to fold the left flap inward and close it, right arm keeps bracing.
-55  Retract the right arm from above the carton and clear the flap area.
-61  Use the right arm to lift the right flap from the right side to near vertical.
-62  Use the right arm to fold the right flap inward and close it.
-```
-
-Here the dataset carries per-frame prompts directly — no index mapping needed.
+EE rollout 数据集另有 `ik_pos_err`、`ik_ok`、`idle_left`、`idle_right`。
 
 ---
 
-## Files
+## 子任务定义
+
+### E0 右臂抓放(2 个)
+
+```
+1  用右臂从右侧区域抓取一个盒子。
+2  用右臂把抓到的盒子放进中间纸箱的空位。
+```
+
+E1 是镜像(左臂,左侧区域)。
+
+### E2 折合扇面,阶段 3/4(7 个)
+
+```
+31  右臂移向箱子右侧扇面下部, 抵住中间。
+32  左臂移向箱子左侧扇面下部, 抵住中间。
+33  双臂同时把左右侧扇面向内折合, 然后压平。
+41  双臂离开箱子扇面, 退到安全位置。
+42  右臂移向箱子右下扇面前部, 轻推。
+43  左臂伸到打开的扇面下方, 抵住下扇面左沿并推。
+44  右臂伸到打开的扇面下方, 抵住下扇面左沿并推。
+```
+
+> ⚠ 这个数据集的 `tasks.jsonl` 里,`task_index` **不是**执行顺序 ——
+> 执行顺序对应 `task_index [0,6,5,2,1,4,3]`。部署时必须做这个映射;
+> 把 `task_index` 当成"第几段"来读,会静默加载错误的提示词。
+
+### E3 合上箱盖,阶段 5/6(7 个)
+
+```
+51  抬起右臂, 移到扇面上方, 贴近纸箱顶面。
+52  张开右爪并下降, 让两指抵住前后扇面。
+53  用左臂把左扇面抬到接近竖直, 右臂保持抵住。
+54  用左臂把左扇面向内折合并合上, 右臂保持抵住。
+55  右臂从纸箱上方撤回, 让开扇面区域。
+61  用右臂从右侧把右扇面抬到接近竖直。
+62  用右臂把右扇面向内折合并合上。
+```
+
+这个数据集直接带逐帧提示词,不需要索引映射。
+
+---
+
+## 文件
 
 ```
 dataset/
-├── README.md              this file
-├── dataset_format.md      LeRobot v2.1 on-disk layout + how to read it
-├── sample_episode/        one episode, all columns, low-res video   [TODO]
-└── visualize_episode.py   plot joint / EE trajectories, dump frames
+├── README.md              本文件
+├── dataset_format.md      LeRobot v2.1 落盘布局 + 读取方式
+├── sample_episode/        一条 episode, 含全部列, 低分辨率视频   [待补]
+└── visualize_episode.py   绘制关节 / 末端位姿轨迹, 导出帧
 ```
 
-## Download
+## 下载
 
-Full datasets: **Hugging Face — link TBD**
+完整数据集:**Hugging Face — 链接待补**
 
 ```python
-# once published
+# 发布后
 from datasets import load_dataset
 ds = load_dataset("<hf-user>/nero-hezi-closing-ee-v1")
 ```
