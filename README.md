@@ -7,18 +7,6 @@
 
 ---
 
-## Demo
-
-> **[待补:完整四段串跑 GIF,3 倍速]**
-> `assets/rollouts/full_chain_3x.gif`
-
-| | |
-|---|---|
-| **[待补] 成功案例** — 完整 18 子任务 | **[待补] 失败案例** — 抓取顺序错误 |
-| `assets/rollouts/success_full.gif` | `assets/rollouts/failure_grasp_order.gif` |
-
----
-
 ## 核心结果
 
 | | |
@@ -156,7 +144,7 @@ E3  双臂  →  依次抬起并合上左、右合页                (7 个子�
 完整 schema、20 维 / 14 维末端位姿布局、子任务定义、逐列含义见
 **[`dataset/README.md`](dataset/README.md)**。
 
-完整数据将发布在 Hugging Face —— **链接待补**。
+完整数据集约 10 GB,不在本仓库;格式与字段说明见 [`dataset/README.md`](dataset/README.md)。
 
 ---
 
@@ -261,9 +249,8 @@ configs/               任务定义(子任务提示词、相机、失败类型)
 scripts/               训练管线 + 策略服务启动脚本
 evaluation/            数据集与管线校验(训练前必须 ALL PASS)
 visualization/         rollout 视频合成
-dataset/               格式说明 + 样例 episode
+dataset/               数据格式与子任务定义
 docs/                  设计笔记
-assets/                演示 GIF 与图片
 ```
 
 ---
@@ -319,7 +306,7 @@ bash scripts/go_ee_train.sh <实验名>
 | 优化器 | AdamW,梯度裁剪 1.0 |
 | 硬件 | 单卡 32GB / 48GB,单次约 10–21 小时 |
 
-Best checkpoint 将发布到 Hugging Face —— **链接待补**。中间档不发布。
+权重不在本仓库(单档 8.9 GB)。
 
 ---
 
@@ -345,4 +332,4 @@ Best checkpoint 将发布到 Hugging Face —— **链接待补**。中间档不
 
 ## 状态
 
-持续开发中。已知待办见 [`docs/TODO.md`](docs/TODO.md)。
+持续开发中。

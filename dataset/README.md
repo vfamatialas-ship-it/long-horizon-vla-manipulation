@@ -3,8 +3,7 @@
 四个真机数据集,每个专家一个。全部由**拖动示教**(零力矩 / 主导模式)在双臂 Nero 机器人上采集,
 未使用任何遥操作设备。
 
-完整数据集发布在 Hugging Face(**链接待补**)。本目录只保留格式说明和一条样例 episode,
-让人不下载 ~10 GB 也能看清 schema。
+完整数据集约 10 GB,不在本仓库。这里只保留格式说明,让人不下载也能看清 schema。
 
 ---
 
@@ -173,16 +172,6 @@ E1 是镜像(左臂,左侧区域)。
 dataset/
 ├── README.md              本文件
 ├── dataset_format.md      LeRobot v2.1 落盘布局 + 读取方式
-├── sample_episode/        一条 episode, 含全部列, 低分辨率视频   [待补]
 └── visualize_episode.py   绘制关节 / 末端位姿轨迹, 导出帧
 ```
 
-## 下载
-
-完整数据集:**Hugging Face — 链接待补**
-
-```python
-# 发布后
-from datasets import load_dataset
-ds = load_dataset("<hf-user>/nero-hezi-closing-ee-v1")
-```
