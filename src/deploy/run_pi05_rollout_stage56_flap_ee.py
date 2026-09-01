@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Nero pi0.5 rollout 采集 —— stage5/6 合页封盖【末端位姿版·新数据】(7 段, 双臂, 20维位姿→IK→关节)。
 
-模型: pi05_nero_stage56_flap_closing_ee_v2 / stage56_ee_run1 / step 19999 (69 集版, loss 0.0224)
-  serve 默认 8030 (已挂在 GPU3)。
-  100 集版 pi05_nero_stage56_flap_closing_ee_v100 仍在训练(GPU2), 训完可另起服务再用 --port 指过去。
+模型: pi05_nero_stage56_flap_closing_ee_v100 / run1 / step 19999
+      (100 集 / 101264 帧, loss 0.0267)  ← 链式部署用的是这个
+  ⚠ 本脚本自身默认端口 8030, 而链式脚本期望 8032 —— 单跑时必须显式 --port 8032。
+  更早的 69 集版 pi05_nero_stage56_flap_closing_ee_v2 / stage56_ee_run1 仍可用(8030, loss 0.0224);
+  v100 的 loss 略高是正常的:数据多 45%、场景更杂,别拿训练 loss 直接判优劣。
 录制内容(与人工采集口径一致, 便于合并/复训):
   observation.state / action : **16 维双臂关节**(左7+左爪+右7+右爪)  ← 你要的双臂关节信息
   三路相机: third_view / left_wrist / right_wrist
