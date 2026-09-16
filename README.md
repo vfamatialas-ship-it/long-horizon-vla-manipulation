@@ -7,13 +7,26 @@
 
 ---
 
+## 演示视频
+
+<table>
+  <tr>
+    <th width="50%">第三视角</th>
+    <th width="50%">机器人视角</th>
+  </tr>
+  <tr>
+    <td>
+      <video src="assets/demos/third-person-view.mp4" controls muted playsinline width="100%"></video>
+    </td>
+    <td>
+      <video src="assets/demos/robot-view.mp4" controls muted playsinline width="100%"></video>
+    </td>
+  </tr>
+</table>
+
+---
+
 ## 核心结果
-
-
-
-https://github.com/user-attachments/assets/901821e8-bd30-4722-b158-f3ebe7fd10c4
-
-
 
 | | |
 |---|---|
