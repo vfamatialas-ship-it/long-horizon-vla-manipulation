@@ -9,20 +9,10 @@
 
 ## 演示视频
 
-<table>
-  <tr>
-    <th width="50%">第三视角</th>
-    <th width="50%">机器人视角</th>
-  </tr>
-  <tr>
-    <td>
-      <video src="assets/demos/third-person-view.mp4" controls muted playsinline width="100%"></video>
-    </td>
-    <td>
-      <video src="assets/demos/robot-view.mp4" controls muted playsinline width="100%"></video>
-    </td>
-  </tr>
-</table>
+| 第三视角 | 机器人视角 |
+| :---: | :---: |
+| [![第三视角动态预览](assets/demos/third-person-preview.gif)](assets/demos/third-person-view.mp4?raw=1) | [![机器人视角动态预览](assets/demos/robot-view-preview.gif)](assets/demos/robot-view.mp4?raw=1) |
+| [▶ 查看完整视频](assets/demos/third-person-view.mp4?raw=1) | [▶ 查看完整视频](assets/demos/robot-view.mp4?raw=1) |
 
 ---
 
