@@ -13,7 +13,11 @@ https://github.com/user-attachments/assets/f9520c1a-4e61-4453-8567-c4757c8fbfc2
 
 <p align="center"><sub>第三视角 · 长程双臂操作完整演示</sub></p>
 
+<div align="center">
+
 https://github.com/user-attachments/assets/901821e8-bd30-4722-b158-f3ebe7fd10c4
+
+</div>
 
 <p align="center"><sub>机器人视角 · 长程双臂操作完整演示</sub></p>
 
