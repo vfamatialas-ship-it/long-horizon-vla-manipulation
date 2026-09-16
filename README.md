@@ -11,7 +11,7 @@
 
 | 第三视角 | 机器人视角 |
 | :---: | :---: |
-| [![第三视角动态预览](assets/demos/third-person-preview.gif)](assets/demos/third-person-view.mp4?raw=1) | [![机器人视角动态预览](assets/demos/robot-view-preview.gif)](assets/demos/robot-view.mp4?raw=1) |
+| [![第三视角完整演示](assets/demos/third-person-full.gif)](assets/demos/third-person-view.mp4?raw=1) | [![机器人视角完整演示](assets/demos/robot-view-full.gif)](assets/demos/robot-view.mp4?raw=1) |
 | [▶ 查看完整视频](assets/demos/third-person-view.mp4?raw=1) | [▶ 查看完整视频](assets/demos/robot-view.mp4?raw=1) |
 
 ---
