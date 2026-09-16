@@ -9,10 +9,13 @@
 
 ## 演示视频
 
-| 第三视角 | 机器人视角 |
-| :---: | :---: |
-| [![第三视角完整演示](assets/demos/third-person-full.gif)](assets/demos/third-person-view.mp4?raw=1) | [![机器人视角完整演示](assets/demos/robot-view-full.gif)](assets/demos/robot-view.mp4?raw=1) |
-| [▶ 查看完整视频](assets/demos/third-person-view.mp4?raw=1) | [▶ 查看完整视频](assets/demos/robot-view.mp4?raw=1) |
+https://github.com/user-attachments/assets/f9520c1a-4e61-4453-8567-c4757c8fbfc2
+
+<p align="center"><sub>第三视角 · 长程双臂操作完整演示</sub></p>
+
+https://github.com/user-attachments/assets/901821e8-bd30-4722-b158-f3ebe7fd10c4
+
+<p align="center"><sub>机器人视角 · 长程双臂操作完整演示</sub></p>
 
 ---
 
